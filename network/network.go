@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -9,14 +10,14 @@ import (
 	"github.com/leia/TetriFast_server/commands"
 )
 
-func StartServer(port string) {
+func StartServer(address string) {
 	// Listen on TCP port 2000 on all available unicast and
 	// anycast IP addresses of the local system.
-	l, err := net.Listen("tcp", port)
+	l, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Server started on port " + port)
+	fmt.Println("Server started on port " + address)
 	defer l.Close()
 	for {
 		// Wait for a connection.
@@ -40,17 +41,36 @@ func StartServer(port string) {
 }
 
 func ProcessRequest(c net.Conn) {
-	rBytes := make([]byte, 256) // using small tmo buffer for demonstrating
-	for {
-		n, err := c.Read(rBytes)
-		if err != nil {
-			if err != io.EOF {
-				fmt.Println("read error:", err, n)
-			}
-			break
+	rw := bufio.NewReadWriter(bufio.NewReader(c), bufio.NewWriter(c))
+	//command := ""
+	//for {
+	command, err := rw.ReadString('\n')
+	if err != nil {
+		if err != io.EOF {
+			fmt.Println("read error:", err, command)
 		}
-
+		//break
 	}
-	fmt.Println(string(rBytes[:]))
-	commands.ProcessCommand(string(rBytes[:]))
+
+	//}
+
+	fmt.Println("Getting command " + command)
+	s := commands.ProcessCommand(command)
+
+	if s != "" {
+		SendResponse(s, rw)
+	}
+}
+
+func SendResponse(response string, rw *bufio.ReadWriter) {
+	fmt.Println("Sending response " + response)
+	n, err := rw.WriteString(response)
+	rw.Flush()
+
+	if err != nil {
+		if err != io.EOF {
+			fmt.Println("read error:", err, n)
+		}
+	}
+
 }
